@@ -11,7 +11,7 @@
             margin: 20px;
         }
         .container {
-            max-width: 600px;
+            max-width: 800px;
             margin: auto;
         }
         input, button {
@@ -32,21 +32,75 @@
             height: 50px;
             margin-top: 5px;
         }
+        .note {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 20px;
+        }
+        .star-rating {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+        }
+        .star {
+            cursor: pointer;
+            font-size: 25px;
+            color: #ccc;
+        }
+        .star.selected {
+            color: gold;
+        }
+        .nav-menu {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #333;
+            color: white;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .nav-menu a {
+            color: white;
+            text-decoration: none;
+        }
+        .nav-menu a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
+    <!-- Navegação -->
+    <div class="nav-menu">
+        <a href="#home">Página Inicial</a>
+        <a href="#savedMovies">Meus Filmes</a>
+        <a href="#report">Relatório</a>
+    </div>
+    
     <div class="container">
         <h1>Busca de Filmes</h1>
+        <p class="note">Para realizar a busca corretamente, digite o título do filme em inglês.</p>
         <input type="text" id="movieSearch" placeholder="Digite o nome do filme">
         <button onclick="searchMovie()">Buscar</button>
         <div id="movieResult"></div>
+        
         <h2>Meus Filmes</h2>
-        <div class="movie-list" id="savedMovies"></div>
+        <h3>Filmes Favoritos</h3>
+        <div class="movie-list" id="favoriteMovies"></div>
+        
+        <h3>Lista de Espera</h3>
+        <div class="movie-list" id="watchlist"></div>
+
+        <h3>Filmes Já Assistidos</h3>
+        <div class="movie-list" id="watchedMovies"></div>
+
+        <h2>Relatório de Gêneros e Recomendações</h2>
+        <div id="report"></div>
     </div>
-    
+
     <script>
         const apiKey = "49bf0c25";
 
+        // Função para buscar o filme
         function searchMovie() {
             const movieTitle = document.getElementById("movieSearch").value;
             fetch(`https://www.omdbapi.com/?t=${movieTitle}&apikey=${apiKey}`)
@@ -61,6 +115,7 @@
                 .catch(error => console.error("Erro ao buscar filme:", error));
         }
 
+        // Função para exibir o filme
         function displayMovie(movie) {
             const movieResult = document.getElementById("movieResult");
             movieResult.innerHTML = `
@@ -69,26 +124,101 @@
                     <img src="${movie.Poster}" alt="Poster">
                     <p><strong>Gênero:</strong> ${movie.Genre}</p>
                     <p><strong>Diretor:</strong> ${movie.Director}</p>
-                    <button onclick='saveMovie(${JSON.stringify(movie)})'>Salvar Filme</button>
+                    <p><strong>Resumo:</strong> ${movie.Plot}</p>
+                    <div class="star-rating" id="rating-${movie.Title}">
+                        <span class="star" onclick="rateMovie('${movie.Title}', 1)">★</span>
+                        <span class="star" onclick="rateMovie('${movie.Title}', 2)">★</span>
+                        <span class="star" onclick="rateMovie('${movie.Title}', 3)">★</span>
+                        <span class="star" onclick="rateMovie('${movie.Title}', 4)">★</span>
+                        <span class="star" onclick="rateMovie('${movie.Title}', 5)">★</span>
+                    </div>
+                    <button onclick='saveMovie(${JSON.stringify(movie)}, "favorite")'>Favoritar</button>
+                    <button onclick='saveMovie(${JSON.stringify(movie)}, "watchlist")'>Adicionar à Lista de Espera</button>
                 </div>
             `;
         }
 
-        function saveMovie(movie) {
-            const savedMovies = document.getElementById("savedMovies");
-            const movieDiv = document.createElement("div");
-            movieDiv.classList.add("movie");
-            movieDiv.innerHTML = `
-                <h3>${movie.Title} (${movie.Year})</h3>
-                <img src="${movie.Poster}" alt="Poster">
-                <p><strong>Gênero:</strong> ${movie.Genre}</p>
-                <p><strong>Diretor:</strong> ${movie.Director}</p>
-                <textarea placeholder="Adicione suas anotações"></textarea>
-                <textarea placeholder="Referências e comentários"></textarea>
-                <button onclick="this.parentElement.remove()">Remover</button>
-            `;
-            savedMovies.appendChild(movieDiv);
+        // Função para salvar o filme em diferentes categorias
+        function saveMovie(movie, category) {
+            let savedMovies = JSON.parse(localStorage.getItem(category)) || [];
+            savedMovies.push(movie);
+            localStorage.setItem(category, JSON.stringify(savedMovies));
+            displaySavedMovies(category);
         }
+
+        // Função para exibir filmes salvos
+        function displaySavedMovies(category) {
+            const savedMovies = JSON.parse(localStorage.getItem(category)) || [];
+            const container = document.getElementById(`${category}Movies`);
+            container.innerHTML = savedMovies.map(movie => `
+                <div class="movie">
+                    <h3>${movie.Title} (${movie.Year})</h3>
+                    <img src="${movie.Poster}" alt="Poster">
+                    <p><strong>Gênero:</strong> ${movie.Genre}</p>
+                    <p><strong>Diretor:</strong> ${movie.Director}</p>
+                    <p><strong>Resumo:</strong> ${movie.Plot}</p>
+                    <button onclick="markAsWatched('${movie.Title}')">Marcar como Assistido</button>
+                    <button onclick="removeMovie('${movie.Title}', '${category}')">Remover</button>
+                </div>
+            `).join('');
+        }
+
+        // Função para marcar como assistido
+        function markAsWatched(movieTitle) {
+            let watchedMovies = JSON.parse(localStorage.getItem("watched")) || [];
+            const savedMovies = JSON.parse(localStorage.getItem("favorite")) || [];
+            const movie = savedMovies.find(m => m.Title === movieTitle);
+            if (movie) {
+                watchedMovies.push(movie);
+                localStorage.setItem("watched", JSON.stringify(watchedMovies));
+                displaySavedMovies("watched");
+            }
+        }
+
+        // Função para remover filme
+        function removeMovie(movieTitle, category) {
+            let savedMovies = JSON.parse(localStorage.getItem(category)) || [];
+            savedMovies = savedMovies.filter(m => m.Title !== movieTitle);
+            localStorage.setItem(category, JSON.stringify(savedMovies));
+            displaySavedMovies(category);
+        }
+
+        // Função para avaliar o filme
+        function rateMovie(movieTitle, rating) {
+            const movieRating = document.getElementById(`rating-${movieTitle}`);
+            const stars = movieRating.querySelectorAll(".star");
+            stars.forEach((star, index) => {
+                if (index < rating) {
+                    star.classList.add("selected");
+                } else {
+                    star.classList.remove("selected");
+                }
+            });
+        }
+
+        // Função para gerar o relatório de gêneros e sugestões
+        function generateReport() {
+            const watchedMovies = JSON.parse(localStorage.getItem("watched")) || [];
+            const genres = watchedMovies.reduce((acc, movie) => {
+                movie.Genre.split(", ").forEach(genre => {
+                    acc[genre] = (acc[genre] || 0) + 1;
+                });
+                return acc;
+            }, {});
+
+            const report = Object.entries(genres)
+                .map(([genre, count]) => `<p>${genre}: ${count} filmes assistidos</p>`)
+                .join('');
+            document.getElementById("report").innerHTML = report;
+        }
+
+        // Gerar o relatório quando a página carregar
+        window.onload = generateReport;
+
+        // Inicializar exibição dos filmes salvos
+        displaySavedMovies("favorite");
+        displaySavedMovies("watchlist");
+        displaySavedMovies("watched");
     </script>
 </body>
 </html>
